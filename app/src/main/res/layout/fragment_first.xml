@@ -9,25 +9,48 @@
 
     <ListView
 
+        android:id="@+id/paired_device_listview"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:textColor="@color/black"
         android:visibility="visible"
-        android:id="@+id/paired_device_listview"
-        app:layout_constraintBottom_toTopOf="@id/go_to_control_panel"
+        app:layout_constraintBottom_toTopOf="@id/discovered_device_listview"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.0" />
 
+    <ListView
+
+        android:id="@+id/discovered_device_listview"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:textColor="@color/black"
+        android:visibility="visible"
+
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/paired_device_listview"
+        app:layout_constraintBottom_toTopOf="@id/go_to_control_panel"
+        app:layout_constraintVertical_bias="0.0" />
 
     <Button
         android:id="@+id/go_to_control_panel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="4dp"
         android:text="Go to Control Panel"
+        app:layout_constraintBottom_toTopOf="@id/discover_device_btn"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.428"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <Button
+        android:id="@+id/discover_device_btn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:text="Discover Device"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.497"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.882" />
+        app:layout_constraintHorizontal_bias="0.457"
+        app:layout_constraintStart_toStartOf="parent" />
 </androidx.constraintlayout.widget.ConstraintLayout>
