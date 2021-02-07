@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
-import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
@@ -23,13 +22,15 @@ class FirstFragment : Fragment() {
     private val REQUEST_CONNECT_DEVICE_INSECURE = 2
     private val REQUEST_ENABLE_BT: Int = 3
     private val bluetoothAdapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
-    private val scannedDeviceArrayList = mutableListOf<String>()
+
+    private var scannedDeviceNames = mutableListOf<String>()
     private lateinit var scannedDeviceAdapter: ArrayAdapter<String>
 
     override fun onCreateView(
             inflater: LayoutInflater, container: ViewGroup?,
             savedInstanceState: Bundle?
     ): View? {
+
         // Inflate the layout for this fragment
         return inflater.inflate(R.layout.fragment_first, container, false)
     }
@@ -59,20 +60,27 @@ class FirstFragment : Fragment() {
             findNavController().navigate(R.id.action_FirstFragment_to_SecondFragment)
         }
 
-        // scan available nearby bluetooth devices
-        val scannedDevices = view.findViewById<ListView>(R.id.discovered_device_listview)
-        val scanDevicesBtn = view.findViewById<Button>(R.id.discover_device_btn)
-
-        scanDevicesBtn.setOnClickListener {
-            bluetoothAdapter?.startDiscovery()
-            Toast.makeText(activity, "start discovering nearby device", Toast.LENGTH_LONG).show()
+        // permission check
+        var permissionCheck: Int = requireActivity().checkSelfPermission("Manifest.permission.ACCESS_FINE_LOCATION")
+        permissionCheck += requireActivity().checkSelfPermission("Manifest.permission.ACCESS_FINE_LOCATION")
+        if (permissionCheck != 0) {
+            requireActivity().requestPermissions(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION), 1001)
         }
-        val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
-        println("filter is $filter")
-        //need requireActivity() cuz all these methods and variables belong to Activity class
-        requireActivity().registerReceiver(receiver, filter)
-        scannedDeviceAdapter = ArrayAdapter(requireActivity(), android.R.layout.simple_list_item_1, scannedDeviceArrayList)
-        scannedDevices.adapter = scannedDeviceAdapter
+
+        // scan available nearby bluetooth devices
+        scannedDeviceAdapter = ArrayAdapter(requireActivity(), android.R.layout.simple_list_item_1, scannedDeviceNames)
+        val discoveredDeviceListView = view.findViewById<ListView>(R.id.discovered_device_listview)
+        discoveredDeviceListView.adapter = scannedDeviceAdapter
+
+
+        // click discovered_device_listview button to display scanned devices
+        view.findViewById<Button>(R.id.discover_device_btn).setOnClickListener {
+            // register receiver for bluetooth
+            val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
+            requireActivity().registerReceiver(receiver, filter)
+            bluetoothAdapter?.startDiscovery()
+        }
+
 
 
         // get paired devices
@@ -91,28 +99,26 @@ class FirstFragment : Fragment() {
             pairedDeviceListView.adapter = adapter
         }
 
-
 //        how to pass values to TextView component in .xml file
 //        val textView: TextView = view.findViewById<TextView>(R.id.test_text_view) as TextView
 //        textView.text = "this is from FirstFragment.kt"
     }
 
-    private val receiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            when(intent.action){
+    // create a BroadcastReceiver for ACTION_FOUND
+    private val receiver = object: BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when(intent!!.action) {
                 BluetoothDevice.ACTION_FOUND -> {
-                    // Discovery has found a device. Get the BluetoothDevice object and its info from the Intent.
                     val device: BluetoothDevice? = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
-                    scannedDeviceArrayList.add(device!!.name)
-                    println("################################################")
-                    println(scannedDeviceArrayList)
-                    println("################################################")
-                    scannedDeviceAdapter!!.notifyDataSetChanged()
+                    if (device!!.name != null){
+                        scannedDeviceNames.add(device!!.name)
+                        scannedDeviceAdapter.notifyDataSetChanged()
+                    }
                 }
             }
-
         }
     }
+
 
 //    override fun onDestroy() {
 //        super.onDestroy()
@@ -120,3 +126,4 @@ class FirstFragment : Fragment() {
 //        requireActivity().unregisterReceiver(receiver)
 //    }
 }
+
