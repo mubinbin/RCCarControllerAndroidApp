@@ -2,17 +2,22 @@ package com.example.rccontroller
 
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothServerSocket
+import android.bluetooth.BluetoothSocket
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
+import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.navigation.fragment.findNavController
+import java.io.IOException
+import java.util.*
 
 /**
  * A simple [Fragment] subclass as the default destination in the navigation.
@@ -22,6 +27,7 @@ class FirstFragment : Fragment() {
     private val REQUEST_CONNECT_DEVICE_INSECURE = 2
     private val REQUEST_ENABLE_BT: Int = 3
     private val bluetoothAdapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
+    private val MY_UUID = UUID.fromString ("dde2373e-dce0-4219-8a09-64200da677a7")
 
     private var scannedDeviceNames = mutableListOf<String>()
     private lateinit var scannedDeviceAdapter: ArrayAdapter<String>
@@ -60,12 +66,14 @@ class FirstFragment : Fragment() {
             findNavController().navigate(R.id.action_FirstFragment_to_SecondFragment)
         }
 
-        // permission check
+
+        // need to do permission check for android LOLLIPOP or above before register receiver
         var permissionCheck: Int = requireActivity().checkSelfPermission("Manifest.permission.ACCESS_FINE_LOCATION")
         permissionCheck += requireActivity().checkSelfPermission("Manifest.permission.ACCESS_FINE_LOCATION")
         if (permissionCheck != 0) {
             requireActivity().requestPermissions(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION), 1001)
         }
+
 
         // scan available nearby bluetooth devices
         scannedDeviceAdapter = ArrayAdapter(requireActivity(), android.R.layout.simple_list_item_1, scannedDeviceNames)
@@ -78,10 +86,9 @@ class FirstFragment : Fragment() {
             // register receiver for bluetooth
             val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
             requireActivity().registerReceiver(receiver, filter)
+
             bluetoothAdapter?.startDiscovery()
         }
-
-
 
         // get paired devices
         val pairedDevices: Set<BluetoothDevice>? = bluetoothAdapter?.bondedDevices
@@ -99,12 +106,22 @@ class FirstFragment : Fragment() {
             pairedDeviceListView.adapter = adapter
         }
 
+        // click on individual paired device to connect
+        view.findViewById<ListView>(R.id.paired_device_listview).onItemClickListener = AdapterView.OnItemClickListener { parent, view, position, id ->
+            val selectedDevice = pairedDevices!!.elementAt(position)
+            val connectedThread = ConnectedThread(selectedDevice)
+            val acceptThread = AcceptThread()
+            acceptThread.start()
+            connectedThread.start()
+            println(connectedThread.mmSocket?.isConnected())
+        }
+
 //        how to pass values to TextView component in .xml file
 //        val textView: TextView = view.findViewById<TextView>(R.id.test_text_view) as TextView
 //        textView.text = "this is from FirstFragment.kt"
     }
 
-    // create a BroadcastReceiver for ACTION_FOUND
+    // create a BroadcastReceiver object receiver for ACTION_FOUND
     private val receiver = object: BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when(intent!!.action) {
@@ -119,11 +136,80 @@ class FirstFragment : Fragment() {
         }
     }
 
+    // accept incoming connections as a server
+    private inner class AcceptThread: Thread(){
+        private val mmServerSocket: BluetoothServerSocket? by lazy(LazyThreadSafetyMode.NONE) {
+            bluetoothAdapter?.listenUsingInsecureRfcommWithServiceRecord("My app", MY_UUID)
+        }
+
+        override fun run() {
+            var shouldLoop = true
+            while (shouldLoop){
+                val socket: BluetoothSocket? =
+                        try {
+                            mmServerSocket?.accept()
+                        }catch (e: IOException){
+                            Log.e("error", "Socket's accept() method failed", e)
+                            shouldLoop =false
+                            null
+                        }
+                socket?.also {
+                    mmServerSocket?.close()
+                    shouldLoop = false
+                }
+            }
+        }
+
+        fun cancel() {
+            try {
+                mmServerSocket?.close()
+            } catch (e: IOException){
+                Log.e("error", "could not close the connect socket", e)
+            }
+        }
+    }
+
+
+    // a client thread initiates a Bluetooth connection
+    private inner class ConnectedThread(device: BluetoothDevice) : Thread() {
+
+        public val mmSocket: BluetoothSocket? by lazy(LazyThreadSafetyMode.NONE) {
+            device.createRfcommSocketToServiceRecord(MY_UUID)
+        }
+
+        public override fun run() {
+
+            // cancel discovery because it otherwise slows down the connection
+            bluetoothAdapter?.cancelDiscovery()
+
+            mmSocket?.use { socket ->
+
+                socket.connect()
+            }
+        }
+        fun cancel() {
+            try {
+                mmSocket?.close()
+            } catch (e: IOException) {
+                Log.e("error", "Could not close the client socket", e)
+            }
+        }
+    }
+
+    override fun onStop(){
+        requireActivity().unregisterReceiver(receiver)
+        super.onStop()
+    }
+
 
 //    override fun onDestroy() {
 //        super.onDestroy()
 //
 //        requireActivity().unregisterReceiver(receiver)
 //    }
+}
+
+private operator fun AdapterView.OnItemClickListener?.invoke(function: () -> Unit) {
+
 }
 
